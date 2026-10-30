@@ -19,3 +19,6 @@ dist-ssr/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Generated PWA development files
+dev-dist/

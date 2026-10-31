@@ -66,3 +66,4 @@ export const permanentlyDeleteFromStorage = (gunId) => {
   saveArchivedGunsToStorage(updated)
   return true
 }
+

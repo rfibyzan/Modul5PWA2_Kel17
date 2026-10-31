@@ -44,7 +44,7 @@ export default function DraftsSection({ onNavigate }) {
               <h3 className="draft-name">{draft.formData?.name || 'Tanpa Nama'}</h3>
               <p className="draft-meta">
                 {draft.formData?.type || '—'} · {draft.formData?.caliber || '—'}
-                {draft.formData?.price && <span> · Rp{formatPrice(draft.formData.price)}</span>}
+                {draft.formData?.price && <span> · {formatPrice(draft.formData.price)}</span>}
               </p>
               {draft.formData?.description && (
                 <p className="draft-desc">{draft.formData.description.substring(0, 80)}…</p>
@@ -66,7 +66,7 @@ export default function DraftsSection({ onNavigate }) {
                 Lanjutkan
               </Button>
               <Button
-                variant="ghost"
+                variant="danger"
                 size="sm"
                 onClick={async () => {
                   if (window.confirm('Hapus draft ini?')) {

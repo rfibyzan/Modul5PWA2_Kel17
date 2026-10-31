@@ -12,6 +12,7 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       devOptions: { enabled: true },
+      includeAssets: ['favicon.ico', 'guns/*.svg', 'logo.png', 'icon-192.png', 'icon-512.png', 'icon.svg'],
       manifest: {
         name: 'Bore & Barrel',
         short_name: 'Bore & Barrel',
@@ -28,6 +29,40 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,webmanifest}'],
+        runtimeCaching: [
+          {
+            // Cache images with CacheFirst strategy for 0 B transferred on reload
+            urlPattern: ({ request, url }) =>
+              request.destination === 'image' ||
+              /\.(?:png|jpg|jpeg|svg|gif|webp|ico)$/i.test(url.pathname),
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'images-cache',
+              expiration: {
+                maxEntries: 60,
+                maxAgeSeconds: 30 * 24 * 60 * 60, // 30 Days
+              },
+            },
+          },
+          {
+            // Cache API queries (Supabase & REST) with NetworkFirst
+            urlPattern: ({ url }) =>
+              url.pathname.includes('/rest/v1/') ||
+              url.pathname.includes('/api/v1/'),
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'api-cache',
+              networkTimeoutSeconds: 3,
+              expiration: {
+                maxEntries: 100,
+                maxAgeSeconds: 24 * 60 * 60, // 1 Day
+              },
+              cacheableResponse: {
+                statuses: [0, 200],
+              },
+            },
+          },
+        ],
       },
     }),
   ],

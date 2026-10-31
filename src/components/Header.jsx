@@ -2,7 +2,6 @@ import { Plus, ShoppingCart } from 'lucide-react'
 import { useFavorites } from '../hooks/useFavorites'
 import { useCart } from '../context/CartContext'
 import { Link } from 'react-router-dom'
-import { Button } from '../components/ui'
 
 function Header() {
   const { favorites } = useFavorites()
@@ -28,24 +27,29 @@ function Header() {
       </nav>
 
       <div className="header-actions" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-        <Link to="/cart" className="text-decoration-none">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="relative"
+        <Link to="/cart" style={{ textDecoration: 'none' }}>
+          <button
+            type="button"
+            className="icon-btn"
+            style={{ position: 'relative' }}
             aria-label={`Keranjang (${itemCount} item${itemCount !== 1 ? 's' : ''})`}
+            title="Keranjang Belanja"
           >
-            <ShoppingCart size={20} />
+            <ShoppingCart size={18} />
             {itemCount > 0 && (
               <span className="cart-badge">{itemCount}</span>
             )}
-          </Button>
+          </button>
         </Link>
 
-        <Link to="/create">
-          <Button variant="primary" size="sm" title="Register new hardware">
+        <Link to="/create" style={{ textDecoration: 'none' }}>
+          <button
+            type="button"
+            className="btn btn--primary btn--sm header-cta"
+            title="Register new hardware"
+          >
             <Plus size={15} /> Add Hardware
-          </Button>
+          </button>
         </Link>
       </div>
     </header>

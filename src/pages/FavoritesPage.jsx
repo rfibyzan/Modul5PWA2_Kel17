@@ -4,13 +4,14 @@ import { useFavorites } from '../hooks/useFavorites'
 import { useGuns } from '../hooks/useGuns'
 import GUNS_LOCAL from '../data/guns'
 import GunCard from '../components/gun/GunCard'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 
 /**
  * FavoritesPage — Displays user's shortlisted / favorited weapons.
  * Supports dual-mode (server API + localStorage fallback).
  */
 export default function FavoritesPage() {
+  const navigate = useNavigate()
   const { favorites, loading: favLoading, error: favError, refetch } = useFavorites()
   const { guns: apiGuns } = useGuns({ limit: 100 })
 
@@ -120,7 +121,7 @@ export default function FavoritesPage() {
               <GunCard
                 key={gun.id || gun.name}
                 gun={gun}
-                onSelect={() => {}} // Detail view handled by clicking the card
+                onSelect={(g) => navigate(`/gun/${g.id}`)}
               />
             ))}
           </ul>

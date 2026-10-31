@@ -1,12 +1,11 @@
 import { Share2 } from 'lucide-react'
 import { useShare } from '../../hooks/useShare'
-import { Button } from '../ui'
 
 /**
  * Share button for a gun product.
- * Uses Web Share API with clipboard fallback.
+ * Aligned with .card-act-btn circular button style from the module.
  */
-export default function ShareButton({ gun, className = '', variant = 'ghost', size = 'icon' }) {
+export default function ShareButton({ gun, className = 'card-act-btn' }) {
   const { share } = useShare()
 
   const handleClick = (e) => {
@@ -15,15 +14,14 @@ export default function ShareButton({ gun, className = '', variant = 'ghost', si
   }
 
   return (
-    <Button
-      variant={variant}
-      size={size}
+    <button
+      type="button"
       className={className}
       onClick={handleClick}
       aria-label={`Bagikan ${gun.name}`}
-      title="Bagikan"
+      title="Bagikan Tautan Unik"
     >
-      <Share2 className="h-4 w-4" />
-    </Button>
+      <Share2 size={15} />
+    </button>
   )
 }

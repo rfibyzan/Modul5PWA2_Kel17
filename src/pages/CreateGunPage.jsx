@@ -20,12 +20,14 @@ import {
   formatDraftTime,
 } from '../utils/draftStorage'
 import ConfirmModal from '../components/modals/ConfirmModal'
+import { useNavigate } from 'react-router-dom'
 
 /**
  * CreateGunPage — Create a new weapon / hardware item with image upload,
  * draft persistence (auto-save), specs, and assembly steps.
  */
-export default function CreateGunPage({ onBack, onSuccess }) {
+export default function CreateGunPage() {
+  const navigate = useNavigate()
   // Step state: 'upload' (upload or choose image) or 'form' (enter details)
   const [currentStep, setCurrentStep] = useState('upload')
 
@@ -276,11 +278,7 @@ export default function CreateGunPage({ onBack, onSuccess }) {
       const response = await gunService.createGun(payload)
       if (response.success || response.data) {
         deleteDraft('create')
-        if (onSuccess) {
-          onSuccess(response.data)
-        } else if (onBack) {
-          onBack()
-        }
+        navigate('/catalog')
       } else {
         throw new Error(response.message || 'Failed to create product.')
       }
@@ -295,7 +293,7 @@ export default function CreateGunPage({ onBack, onSuccess }) {
     <div className="form-page">
       {/* Header */}
       <div className="form-head">
-        <button type="button" className="detail-back" onClick={onBack}>
+        <button type="button" className="detail-back" onClick={() => navigate('/catalog')}>
           <ArrowLeft size={18} /> Back to Catalog
         </button>
         <div className="form-head-actions">
@@ -674,7 +672,7 @@ export default function CreateGunPage({ onBack, onSuccess }) {
             <button
               type="button"
               className="btn btn--outline"
-              onClick={onBack}
+              onClick={() => navigate('/catalog')}
               disabled={creating}
             >
               Cancel

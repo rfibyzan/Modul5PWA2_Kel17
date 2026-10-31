@@ -1,18 +1,26 @@
 import { useState } from 'react'
-import { ArrowLeft, Star, Send, Loader } from 'lucide-react'
+import {
+  ArrowLeft,
+  Star,
+  Send,
+  Loader,
+  ShoppingCart,
+  ThumbsUp,
+  ThumbsDown,
+  Edit2,
+  Trash2,
+  Check,
+} from 'lucide-react'
 import FavoriteButton from '../common/FavoriteButton'
-import { useReviews, useCreateReview } from '../../hooks/useReviews'
+import ShareButton from './ShareButton'
+import { useReviews, useCreateReview, useUpdateReview, useDeleteReview, useVoteReview } from '../../hooks/useReviews'
+import { useCart } from '../../context/CartContext'
 import { getUserIdentifier } from '../../services/userService'
 import { formatPrice, averageRating } from '../../utils/helpers'
+import { Button, toast } from '../ui'
 
 /**
- * Full-screen product detail view.
- *
- * @param {Object}   props
- * @param {Object}   props.gun       — product data
- * @param {Function} props.onBack    — return to catalog
- * @param {Function} [props.onEdit]  — navigate to edit page
- * @param {Function} [props.onDelete]— trigger delete flow
+ * Full-screen product detail view modal.
  */
 export default function GunDetail({ gun, onBack, onEdit, onDelete }) {
   const imgSrc = gun.image_url || gun.image || '/guns/pistol.svg'
@@ -20,16 +28,29 @@ export default function GunDetail({ gun, onBack, onEdit, onDelete }) {
   const caliber = gun.caliber || gun.difficulty || ''
   const price = gun.price ?? gun.cook_time ?? 0
 
-  // Reviews
+  const { addItem } = useCart()
   const { reviews, loading: reviewsLoading, refetch: refetchReviews } = useReviews(gun.id)
   const { createReview, loading: submitting } = useCreateReview()
+  const { updateReview } = useUpdateReview()
+  const { deleteReview } = useDeleteReview()
+  const { voteReview } = useVoteReview()
+
   const [rating, setRating] = useState(5)
   const [comment, setComment] = useState('')
   const [reviewError, setReviewError] = useState('')
   const [reviewSuccess, setReviewSuccess] = useState('')
+  const [editingReviewId, setEditingReviewId] = useState(null)
+  const [editRating, setEditRating] = useState(5)
+  const [editComment, setEditComment] = useState('')
 
   const avgRating = gun.average_rating || averageRating(reviews)
   const reviewCount = gun.review_count ?? reviews.length
+  const userId = getUserIdentifier()
+
+  const handleAddToCart = () => {
+    addItem(gun)
+    toast.success('Keranjang', `${gun.name} ditambahkan ke keranjang.`)
+  }
 
   const handleSubmitReview = async (e) => {
     e.preventDefault()
@@ -37,23 +58,59 @@ export default function GunDetail({ gun, onBack, onEdit, onDelete }) {
     setReviewSuccess('')
 
     if (rating < 1 || rating > 5) {
-      setReviewError('Rating must be between 1 and 5.')
+      setReviewError('Rating harus antara 1 dan 5.')
       return
     }
 
-    const result = await createReview(gun.id, {
-      user_identifier: getUserIdentifier(),
-      rating,
-      comment: comment.trim(),
-    })
+    try {
+      const result = await createReview(gun.id, {
+        user_identifier: userId,
+        rating,
+        comment: comment.trim(),
+      })
 
-    if (result) {
-      setReviewSuccess('Review submitted!')
-      setComment('')
-      setRating(5)
+      if (result) {
+        setReviewSuccess('Review berhasil dikirim!')
+        setComment('')
+        setRating(5)
+        refetchReviews()
+      }
+    } catch (err) {
+      setReviewError(err.message || 'Gagal mengirim review.')
+    }
+  }
+
+  const handleVote = async (reviewId, vote) => {
+    try {
+      await voteReview({ reviewId, gunId: gun.id, vote })
       refetchReviews()
-    } else {
-      setReviewError('Could not submit review. The server may be unavailable.')
+    } catch {
+      /* ignore */
+    }
+  }
+
+  const handleUpdateReview = async (e, reviewId) => {
+    e.preventDefault()
+    try {
+      await updateReview({
+        reviewId,
+        reviewData: { rating: editRating, comment: editComment.trim() },
+        gunId: gun.id,
+      })
+      setEditingReviewId(null)
+      refetchReviews()
+    } catch {
+      /* ignore */
+    }
+  }
+
+  const handleDeleteReview = async (reviewId) => {
+    if (!window.confirm('Hapus review ini?')) return
+    try {
+      await deleteReview({ reviewId, gunId: gun.id })
+      refetchReviews()
+    } catch {
+      /* ignore */
     }
   }
 
@@ -82,8 +139,12 @@ export default function GunDetail({ gun, onBack, onEdit, onDelete }) {
             </p>
           )}
 
-          <div className="detail-actions">
+          <div className="detail-actions" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+            <Button variant="primary" size="sm" onClick={handleAddToCart}>
+              <ShoppingCart size={16} className="mr-1" /> Tambah ke Keranjang
+            </Button>
             <FavoriteButton gunId={gun.id || gun.name} />
+            <ShareButton gun={gun} />
             {onEdit && (
               <button type="button" className="btn btn--outline" onClick={() => onEdit(gun)}>
                 Edit
@@ -101,10 +162,10 @@ export default function GunDetail({ gun, onBack, onEdit, onDelete }) {
       {/* Description */}
       <section className="detail-section">
         <h2>Description</h2>
-        <p>{gun.description || 'No description available.'}</p>
+        <p>{gun.description || 'Tidak ada deskripsi tersedia.'}</p>
       </section>
 
-      {/* Specifications (from ingredients / steps if present) */}
+      {/* Specifications */}
       {gun.ingredients && gun.ingredients.length > 0 && (
         <section className="detail-section">
           <h2>Specifications</h2>
@@ -118,22 +179,9 @@ export default function GunDetail({ gun, onBack, onEdit, onDelete }) {
         </section>
       )}
 
-      {gun.steps && gun.steps.length > 0 && (
-        <section className="detail-section">
-          <h2>Assembly / Maintenance Steps</h2>
-          <ol className="detail-steps">
-            {gun.steps.map((step, i) => (
-              <li key={step.id || i}>
-                {step.instruction || step}
-              </li>
-            ))}
-          </ol>
-        </section>
-      )}
-
       {/* Reviews Section */}
       <section className="detail-section">
-        <h2>Reviews</h2>
+        <h2>Reviews &amp; Ratings ({reviews.length})</h2>
 
         {/* Submit review */}
         <form className="review-form" onSubmit={handleSubmitReview}>
@@ -158,7 +206,7 @@ export default function GunDetail({ gun, onBack, onEdit, onDelete }) {
           <textarea
             className="review-input"
             rows="3"
-            placeholder="Write a short review (optional)…"
+            placeholder="Tulis ulasan Anda…"
             value={comment}
             onChange={(e) => setComment(e.target.value)}
             maxLength={500}
@@ -167,7 +215,7 @@ export default function GunDetail({ gun, onBack, onEdit, onDelete }) {
           <button
             type="submit"
             className="btn btn--primary"
-            disabled={submitting || !gun.id}
+            disabled={submitting}
           >
             {submitting ? (
               <><Loader size={16} className="spin" /> Submitting…</>
@@ -178,11 +226,6 @@ export default function GunDetail({ gun, onBack, onEdit, onDelete }) {
 
           {reviewError && <p className="form-error">{reviewError}</p>}
           {reviewSuccess && <p className="form-success">{reviewSuccess}</p>}
-          {!gun.id && (
-            <p className="form-hint">
-              Reviews require a server-generated product ID. This product is local-only.
-            </p>
-          )}
         </form>
 
         {/* Existing reviews */}
@@ -190,27 +233,125 @@ export default function GunDetail({ gun, onBack, onEdit, onDelete }) {
           <p className="detail-loading">Loading reviews…</p>
         ) : reviews.length > 0 ? (
           <ul className="review-list">
-            {reviews.map((rev) => (
-              <li key={rev.id} className="review-item">
-                <div className="review-head">
-                  <span className="review-user">{rev.user_identifier || 'Anonymous'}</span>
-                  <span className="review-stars-display">
-                    {Array.from({ length: 5 }, (_, i) => (
-                      <Star
-                        key={i}
-                        size={14}
-                        fill={i < rev.rating ? 'var(--brass)' : 'none'}
-                        stroke={i < rev.rating ? 'var(--brass)' : 'var(--line)'}
+            {reviews.map((rev) => {
+              const userVote = rev.user_votes?.[userId]
+              const upvotes = rev.upvotes || 0
+              const downvotes = rev.downvotes || 0
+              const isOwner =
+                rev.user_id === userId ||
+                rev.user_identifier === userId ||
+                !rev.user_id ||
+                rev.user_identifier === 'Operator' ||
+                String(rev.id).startsWith('local-')
+
+              if (editingReviewId === rev.id) {
+                return (
+                  <li key={rev.id} className="review-item review-item--editing">
+                    <form onSubmit={(e) => handleUpdateReview(e, rev.id)}>
+                      <div className="review-stars">
+                        {[1, 2, 3, 4, 5].map((n) => (
+                          <button
+                            key={n}
+                            type="button"
+                            className="star-btn"
+                            onClick={() => setEditRating(n)}
+                            aria-label={`${n} star`}
+                          >
+                            <Star
+                              size={20}
+                              fill={n <= editRating ? 'var(--brass)' : 'none'}
+                              stroke={n <= editRating ? 'var(--brass)' : 'var(--steel)'}
+                            />
+                          </button>
+                        ))}
+                      </div>
+                      <textarea
+                        className="review-input"
+                        rows="3"
+                        value={editComment}
+                        onChange={(e) => setEditComment(e.target.value)}
+                        maxLength={500}
                       />
-                    ))}
-                  </span>
-                </div>
-                {rev.comment && <p className="review-comment">{rev.comment}</p>}
-              </li>
-            ))}
+                      <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+                        <Button type="submit" variant="primary" size="sm">
+                          <Check size={14} /> Simpan
+                        </Button>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => setEditingReviewId(null)}>
+                          Batal
+                        </Button>
+                      </div>
+                    </form>
+                  </li>
+                )
+              }
+
+              return (
+                <li key={rev.id} className="review-item">
+                  <div className="review-head">
+                    <span className="review-user">{rev.user_identifier || 'Operator'}</span>
+                    <span className="review-stars-display">
+                      {Array.from({ length: 5 }, (_, i) => (
+                        <Star
+                          key={i}
+                          size={14}
+                          fill={i < rev.rating ? 'var(--brass)' : 'none'}
+                          stroke={i < rev.rating ? 'var(--brass)' : 'var(--line)'}
+                        />
+                      ))}
+                    </span>
+                  </div>
+                  {rev.comment && <p className="review-comment">{rev.comment}</p>}
+
+                  <div className="review-votes" style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '8px' }}>
+                    <Button
+                      variant={userVote === 'up' ? 'primary' : 'ghost'}
+                      size="sm"
+                      onClick={() => handleVote(rev.id, 'up')}
+                      title="Thumbs Up"
+                    >
+                      <ThumbsUp size={14} /> {upvotes}
+                    </Button>
+                    <Button
+                      variant={userVote === 'down' ? 'danger' : 'ghost'}
+                      size="sm"
+                      onClick={() => handleVote(rev.id, 'down')}
+                      title="Thumbs Down"
+                    >
+                      <ThumbsDown size={14} /> {downvotes}
+                    </Button>
+
+                    {isOwner && (
+                      <div style={{ marginLeft: 'auto', display: 'flex', gap: '4px' }}>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            setEditingReviewId(rev.id)
+                            setEditRating(rev.rating)
+                            setEditComment(rev.comment || '')
+                          }}
+                          title="Edit"
+                        >
+                          <Edit2 size={14} />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDeleteReview(rev.id)}
+                          title="Delete"
+                          style={{ color: '#c0392b' }}
+                        >
+                          <Trash2 size={14} />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </li>
+              )
+            })}
           </ul>
         ) : (
-          <p className="detail-empty">No reviews yet. Be the first!</p>
+          <p className="detail-empty">Belum ada review. Jadilah yang pertama!</p>
         )}
       </section>
     </div>

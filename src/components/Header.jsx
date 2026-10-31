@@ -1,53 +1,53 @@
-import { Plus } from 'lucide-react'
+import { Plus, ShoppingCart } from 'lucide-react'
 import { useFavorites } from '../hooks/useFavorites'
+import { useCart } from '../context/CartContext'
+import { Link } from 'react-router-dom'
+import { Button } from '../components/ui'
 
-const NAV_ITEMS = [
-  { id: 'Catalog', label: 'Catalog' },
-  { id: 'Favorites', label: 'Favorites', hasBadge: true },
-  { id: 'Profile', label: 'Profile' },
-  { id: 'About', label: 'About' },
-  { id: 'Contact', label: 'Contact' },
-]
-
-function Header({ tab, onTab, onNavigateCreate }) {
+function Header() {
   const { favorites } = useFavorites()
+  const { itemCount } = useCart()
   const favCount = favorites ? favorites.length : 0
 
   return (
     <header className="header">
-      <div className="header-brand-wrap" onClick={() => onTab('Catalog')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px' }}>
+      <Link to="/catalog" className="header-brand-wrap" style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none', color: 'inherit' }}>
         <div className="header-logo-badge">
           <img src="/logo.png" alt="Bore & Barrel" />
         </div>
-        <span className="brand display">Bore &amp; Barrel</span>
-      </div>
+        <span className="brand display">Bore & Barrel</span>
+      </Link>
 
       <nav className="nav">
-        {NAV_ITEMS.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            className={tab === item.id ? 'nav-link active' : 'nav-link'}
-            onClick={() => onTab(item.id)}
-          >
-            {item.label}
-            {item.hasBadge && favCount > 0 && (
-              <span className="nav-badge">{favCount}</span>
-            )}
-          </button>
-        ))}
+        <Link to="/catalog" className="nav-link">Catalog</Link>
+        <Link to="/favorites" className="nav-link">
+          Favorites
+          {favCount > 0 && <span className="nav-badge">{favCount}</span>}
+        </Link>
+        <Link to="/profile" className="nav-link">Profile</Link>
       </nav>
 
-      {onNavigateCreate && (
-        <button
-          type="button"
-          className="btn btn--primary btn--sm header-cta"
-          onClick={onNavigateCreate}
-          title="Register new hardware"
-        >
-          <Plus size={15} /> Add Hardware
-        </button>
-      )}
+      <div className="header-actions" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <Link to="/cart" className="text-decoration-none">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="relative"
+            aria-label={`Keranjang (${itemCount} item${itemCount !== 1 ? 's' : ''})`}
+          >
+            <ShoppingCart size={20} />
+            {itemCount > 0 && (
+              <span className="cart-badge">{itemCount}</span>
+            )}
+          </Button>
+        </Link>
+
+        <Link to="/create">
+          <Button variant="primary" size="sm" title="Register new hardware">
+            <Plus size={15} /> Add Hardware
+          </Button>
+        </Link>
+      </div>
     </header>
   )
 }

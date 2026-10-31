@@ -1,4 +1,11 @@
 import { apiClient, IS_SUPABASE } from '../config/api'
+import GUNS_LOCAL from '../data/guns'
+import {
+  getArchivedGunsFromStorage,
+  archiveGunToStorage,
+  restoreGunFromStorage,
+  permanentlyDeleteFromStorage,
+} from '../utils/archiveStorage'
 
 // ---------------------------------------------------------------------------
 // Normalizer — standardizes product shape whether received from Supabase
@@ -51,6 +58,7 @@ export const normalizeProduct = (item) => {
     image: item.image_url || item.image || '/guns/pistol.svg',
     ingredients: specsList,
     steps: stepsList,
+    deleted_at: item.deleted_at ?? null,
   }
 }
 
@@ -66,6 +74,11 @@ class GunService {
   async getGuns(params = {}) {
     if (IS_SUPABASE) {
       const queryParts = ['select=*']
+
+      // Database doesn't have deleted_at column - show all products
+      // if (!params.includeArchived) {
+      //   queryParts.push('deleted_at=is.null')
+      // }
 
       if (params.search) {
         queryParts.push(`name=ilike.*${encodeURIComponent(params.search)}*`)
@@ -84,6 +97,11 @@ class GunService {
 
       if (params.limit) {
         queryParts.push(`limit=${params.limit}`)
+      }
+
+      if (params.page) {
+        const offset = (params.page - 1) * (params.limit || 50)
+        queryParts.push(`offset=${offset}`)
       }
 
       const queryString = queryParts.join('&')
@@ -109,17 +127,50 @@ class GunService {
   }
 
   /**
+   * Fetch archived (soft-deleted) products.
+   */
+  async getArchivedGuns(params = {}) {
+    const localArchived = getArchivedGunsFromStorage()
+    return {
+      success: true,
+      data: localArchived,
+      pagination: { total: localArchived.length, page: 1, limit: params.limit || 50 }
+    }
+  }
+
+  /**
    * Fetch a single product by ID.
    */
   async getGunById(id) {
     if (IS_SUPABASE) {
-      const data = await apiClient.get(`/rest/v1/products?id=eq.${id}&select=*`)
-      if (Array.isArray(data) && data.length > 0) {
-        return { success: true, data: normalizeProduct(data[0]) }
+      try {
+        const data = await apiClient.get(`/rest/v1/products?id=eq.${id}&select=*`)
+        if (Array.isArray(data) && data.length > 0) {
+          return { success: true, data: normalizeProduct(data[0]) }
+        }
+      } catch {
+        // Fallback below
       }
-      throw new Error('Hardware item not found.')
+    } else {
+      try {
+        const data = await apiClient.get(`/api/v1/recipes/${id}`)
+        if (data) return { success: true, data: normalizeProduct(data.data || data) }
+      } catch {
+        // Fallback below
+      }
     }
-    return apiClient.get(`/api/v1/recipes/${id}`)
+
+    // Check archived guns
+    const archived = getArchivedGunsFromStorage().find((g) => String(g.id) === String(id) || g.name === id)
+    if (archived) return { success: true, data: archived }
+
+    // Fallback to local catalog
+    const local = GUNS_LOCAL.find((g, idx) => String(g.id || `local-${idx}`) === String(id) || g.name === id)
+    if (local) {
+      return { success: true, data: { ...local, id: local.id || id } }
+    }
+
+    throw new Error('Hardware item not found.')
   }
 
   /**
@@ -141,6 +192,7 @@ class GunService {
         description: data.description || '',
         specs: specsArray,
         image_url: data.image_url || null,
+        deleted_at: null,
       }
 
       const res = await apiClient.post('/rest/v1/products', payload, {
@@ -196,14 +248,49 @@ class GunService {
   }
 
   /**
-   * Delete product.
+   * Soft delete (archive) a product.
+   */
+  async archiveGun(gunOrId) {
+    let gun = gunOrId
+    if (typeof gunOrId === 'string' || typeof gunOrId === 'number') {
+      try {
+        const fetched = await this.getGunById(gunOrId)
+        gun = fetched.data
+      } catch {
+        gun = { id: gunOrId, name: `Item ${gunOrId}` }
+      }
+    }
+    const archived = archiveGunToStorage(gun)
+    return { success: true, data: archived }
+  }
+
+  /**
+   * Restore an archived product.
+   */
+  async restoreGun(id) {
+    const restored = restoreGunFromStorage(id)
+    return { success: true, data: restored }
+  }
+
+  /**
+   * Hard delete a product (permanent).
    */
   async deleteGun(id) {
+    permanentlyDeleteFromStorage(id)
     if (IS_SUPABASE) {
-      await apiClient.delete(`/rest/v1/products?id=eq.${id}`)
+      try {
+        await apiClient.delete(`/rest/v1/products?id=eq.${id}`)
+      } catch {
+        // Ignored if offline
+      }
       return { success: true }
     }
-    return apiClient.delete(`/api/v1/recipes/${id}`)
+    try {
+      await apiClient.delete(`/api/v1/recipes/${id}`)
+    } catch {
+      // Ignored if offline
+    }
+    return { success: true }
   }
 }
 

@@ -3,47 +3,43 @@ import {
   Shield,
   Copy,
   Check,
-  Save,
   Heart,
   FileText,
   Camera,
   Play,
+  Mail,
+  Archive,
+  Edit2,
 } from 'lucide-react'
-import userService from '../services/userService'
 import { useFavorites } from '../hooks/useFavorites'
-
-/**
- * Get count of active drafts in localStorage
- */
-const getActiveDraftCount = () => {
-  try {
-    let count = 0
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i)
-      if (key && (key.startsWith('bore_barrel_draft_') || key.startsWith('recipe_draft_'))) {
-        count++
-      }
-    }
-    return count
-  } catch {
-    return 0
-  }
-}
+import { useDrafts } from '../hooks/useDrafts'
+import { useArchivedGuns } from '../hooks/useArchivedGuns'
+import userService from '../services/userService'
+import { Tabs, TabItem } from '../components/ui'
+import AboutSection from '../components/profile/AboutSection'
+import ContactSection from '../components/profile/ContactSection'
+import DraftsSection from '../components/profile/DraftsSection'
+import ArchivedSection from '../components/profile/ArchivedSection'
+import { Button } from '../components/ui'
+import { useNavigate } from 'react-router-dom'
 
 /**
  * ProfilePage — User identity and Armory settings.
- * Manages operator profile, identifier, favorites stats, and draft storage.
+ * Tabbed layout: Overview, About, Contact, Drafts, Arsip
  */
 export default function ProfilePage({ onReplaySplash }) {
+  const navigate = useNavigate()
   const [profile, setProfile] = useState(() => userService.getUserProfile())
-  const [username, setUsername] = useState(profile.username || 'Shooter')
-  const [bio, setBio] = useState(profile.bio || '')
-  const [avatar, setAvatar] = useState(profile.avatar || null)
+  const [activeTab, setActiveTab] = useState('overview')
   const [copied, setCopied] = useState(false)
   const [feedback, setFeedback] = useState('')
 
   const { favorites } = useFavorites()
-  const [draftCount] = useState(getActiveDraftCount)
+  const { drafts: draftList } = useDrafts()
+  const { guns: archivedGuns } = useArchivedGuns()
+
+  const draftCount = draftList.length
+  const archivedCount = archivedGuns.length
 
   const handleCopyId = () => {
     if (profile.userId) {
@@ -66,7 +62,7 @@ export default function ProfilePage({ onReplaySplash }) {
     const reader = new FileReader()
     reader.onload = (event) => {
       const base64 = event.target.result
-      setAvatar(base64)
+      setProfile(prev => ({ ...prev, avatar: base64 }))
       userService.updateAvatar(base64)
       setFeedback('Avatar updated.')
       setTimeout(() => setFeedback(''), 3000)
@@ -74,21 +70,18 @@ export default function ProfilePage({ onReplaySplash }) {
     reader.readAsDataURL(file)
   }
 
-  const handleSaveProfile = (e) => {
-    e.preventDefault()
-    const updated = {
-      ...profile,
-      username: username.trim() || 'Shooter',
-      bio: bio.trim(),
-      avatar,
-    }
-    const result = userService.saveUserProfile(updated)
-    if (result.success) {
-      setProfile(result.data)
-      setFeedback('Profile successfully updated.')
-      setTimeout(() => setFeedback(''), 3000)
-    } else {
-      setFeedback('Failed to save profile.')
+  const tabKeys = ['overview', 'about', 'contact', 'drafts', 'archived']
+  const selectedIndex = tabKeys.indexOf(activeTab) !== -1 ? tabKeys.indexOf(activeTab) : 0
+
+  const handleNavigate = (target, payload) => {
+    if (target === 'Create') {
+      navigate('/create')
+    } else if (target === 'Edit') {
+      navigate(`/edit/${payload.id}`)
+    } else if (target === 'EditProfile') {
+      navigate('/edit-profile')
+    } else if (target === 'Catalog') {
+      navigate('/catalog')
     }
   }
 
@@ -123,8 +116,8 @@ export default function ProfilePage({ onReplaySplash }) {
       <div className="profile-card">
         <div className="profile-card-top">
           <div className="avatar-wrap">
-            {avatar ? (
-              <img src={avatar} alt={profile.username} className="avatar-img" />
+            {profile.avatar ? (
+              <img src={profile.avatar} alt={profile.username} className="avatar-img" />
             ) : (
               <div className="avatar-placeholder">
                 <Shield size={36} stroke="var(--brass)" />
@@ -155,6 +148,11 @@ export default function ProfilePage({ onReplaySplash }) {
                 {copied ? <Check size={14} color="var(--brass)" /> : <Copy size={14} />}
               </button>
             </div>
+            {profile.bio && (
+              <p className="profile-bio" style={{ marginTop: '8px', color: 'var(--steel)', fontStyle: 'italic', fontSize: '0.9rem' }}>
+                "{profile.bio}"
+              </p>
+            )}
           </div>
         </div>
 
@@ -170,45 +168,68 @@ export default function ProfilePage({ onReplaySplash }) {
             <div className="stat-val">{draftCount}</div>
             <div className="stat-label">Saved Offline Drafts</div>
           </div>
+          <div className="stat-item">
+            <Archive size={20} className="stat-icon" stroke="var(--steel)" />
+            <div className="stat-val">{archivedCount}</div>
+            <div className="stat-label">Archived Items</div>
+          </div>
+        </div>
+
+        {/* Edit Profile Button */}
+        <div className="profile-actions">
+          <Button
+            variant="primary"
+            onClick={() => navigate('/edit-profile')}
+            className="w-full"
+          >
+            <Edit2 size={16} /> Edit Profile
+          </Button>
         </div>
       </div>
 
-      {/* Profile Form */}
-      <form onSubmit={handleSaveProfile} className="profile-form">
-        <h3 className="section-title">Armorer Details</h3>
+      {/* Tabbed Sections */}
+      <Tabs selectedIndex={selectedIndex} onChange={(index) => {
+        setActiveTab(tabKeys[index])
+      }}>
+        <TabItem label="Overview">
+          <div className="profile-section">
+            <p className="lede">
+              Selamat datang, {profile.username || 'Shooter'}. Gunakan tab di atas untuk melihat
+              informasi tentang toko, detail kontak, draft tersimpan, dan item yang diarsipkan.
+            </p>
+            <div className="overview-links">
+              <Button variant="outline" onClick={() => setActiveTab('about')}>
+                <Mail size={16} /> Tentang Kami
+              </Button>
+              <Button variant="outline" onClick={() => setActiveTab('contact')}>
+                <Mail size={16} /> Kontak
+              </Button>
+              <Button variant="outline" onClick={() => setActiveTab('drafts')}>
+                <FileText size={16} /> Draft ({draftCount})
+              </Button>
+              <Button variant="outline" onClick={() => setActiveTab('archived')}>
+                <Archive size={16} /> Arsip ({archivedCount})
+              </Button>
+            </div>
+          </div>
+        </TabItem>
 
-        <div className="form-group">
-          <label htmlFor="prof-name" className="form-label">
-            Callsign / Operator Alias
-          </label>
-          <input
-            id="prof-name"
-            type="text"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            placeholder="e.g. Operator Delta, Master Gunsmith"
-            className="form-input"
-          />
-        </div>
+        <TabItem label="About">
+          <AboutSection />
+        </TabItem>
 
-        <div className="form-group">
-          <label htmlFor="prof-bio" className="form-label">
-            Armory Notes / Station Bio
-          </label>
-          <textarea
-            id="prof-bio"
-            value={bio}
-            onChange={(e) => setBio(e.target.value)}
-            placeholder="Qualifications, preferred calibers, unit assignment..."
-            rows={3}
-            className="form-textarea"
-          />
-        </div>
+        <TabItem label="Contact">
+          <ContactSection />
+        </TabItem>
 
-        <button type="submit" className="btn btn--primary">
-          <Save size={16} /> Save Armorer Profile
-        </button>
-      </form>
+        <TabItem label="Drafts">
+          <DraftsSection onNavigate={handleNavigate} />
+        </TabItem>
+
+        <TabItem label="Arsip">
+          <ArchivedSection onNavigate={handleNavigate} />
+        </TabItem>
+      </Tabs>
     </div>
   )
 }

@@ -1,6 +1,9 @@
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
+import path from 'path'
+
+const rootDir = import.meta.dirname || path.resolve()
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -28,4 +31,16 @@ export default defineConfig({
       },
     }),
   ],
+  resolve: {
+    alias: {
+      '@': path.resolve(rootDir, './src'),
+      '@components': path.resolve(rootDir, './src/components'),
+      '@pages': path.resolve(rootDir, './src/pages'),
+      '@hooks': path.resolve(rootDir, './src/hooks'),
+      '@services': path.resolve(rootDir, './src/services'),
+      '@utils': path.resolve(rootDir, './src/utils'),
+      '@context': path.resolve(rootDir, './src/context'),
+      '@lib': path.resolve(rootDir, './src/lib'),
+    },
+  },
 })

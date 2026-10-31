@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import { RefreshCw, Plus, Loader, AlertCircle, PackageOpen } from 'lucide-react'
 import { useGuns } from '../hooks/useGuns'
+import { useArchiveGun, useArchivedGuns } from '../hooks/useArchivedGuns'
 import GUNS_LOCAL from '../data/guns'
 import GunCard from '../components/gun/GunCard'
 import GunDetail from '../components/gun/GunDetail'
@@ -13,6 +14,7 @@ import {
   sortItems,
   extractCategories,
 } from '../utils/helpers'
+import { useNavigate, Link } from 'react-router-dom'
 
 /**
  * Catalog page — the main product listing.
@@ -23,19 +25,25 @@ import {
  *
  * Features: search, category filter, sort, CRUD actions, detail modal.
  */
-export default function Catalog({ onNavigate }) {
+export default function Catalog() {
+  const navigate = useNavigate()
   // ---- API data ----
   const { guns: apiGuns, loading, error, refetch } = useGuns({ limit: 50 })
+  const { archiveGun } = useArchiveGun()
+  const { guns: archivedGuns } = useArchivedGuns()
   const [useLocal, setUseLocal] = useState(false)
 
   // Decide data source
   const rawGuns = useMemo(() => {
+    let source = apiGuns
     if (useLocal || (error && apiGuns.length === 0)) {
       // Enrich local data with synthetic ids so FavoriteButton and detail work
-      return GUNS_LOCAL.map((g, i) => ({ ...g, id: g.id || `local-${i}` }))
+      source = GUNS_LOCAL.map((g, i) => ({ ...g, id: g.id || `local-${i}` }))
     }
-    return apiGuns
-  }, [apiGuns, error, useLocal])
+    // Filter out archived items
+    const archivedIds = new Set(archivedGuns.map(g => String(g.id)))
+    return source.filter(g => !archivedIds.has(String(g.id)) && !g.deleted_at && !g.archived_at)
+  }, [apiGuns, error, useLocal, archivedGuns])
 
   // ---- filters / sort ----
   const [search, setSearch] = useState('')
@@ -81,7 +89,7 @@ export default function Catalog({ onNavigate }) {
       <GunDetail
         gun={selectedGun}
         onBack={() => setSelectedGun(null)}
-        onEdit={(g) => onNavigate && onNavigate('Edit', g)}
+        onEdit={(g) => navigate(`/edit/${g.id}`)}
         onDelete={(g) => { setSelectedGun(null); setDeleteTarget(g) }}
       />
     )
@@ -105,15 +113,11 @@ export default function Catalog({ onNavigate }) {
             <span className="count">
               {filteredGuns.length} piece{filteredGuns.length !== 1 ? 's' : ''}
             </span>
-            {onNavigate && (
-              <button
-                type="button"
-                className="btn btn--primary btn--sm"
-                onClick={() => onNavigate('Create')}
-              >
+            <Link to="/create">
+              <button type="button" className="btn btn--primary btn--sm">
                 <Plus size={16} /> Add
               </button>
-            )}
+            </Link>
           </div>
         </div>
 
@@ -170,8 +174,9 @@ export default function Catalog({ onNavigate }) {
               <GunCard
                 key={gun.id || gun.name}
                 gun={gun}
-                onSelect={setSelectedGun}
-                onEdit={onNavigate ? (g) => onNavigate('Edit', g) : undefined}
+                onSelect={(g) => navigate(`/gun/${g.id}`)}
+                onEdit={(g) => navigate(`/edit/${g.id}`)}
+                onArchive={(g) => archiveGun(g)}
                 onDelete={setDeleteTarget}
               />
             ))}

@@ -4,12 +4,13 @@ import { useFavorites } from '../hooks/useFavorites'
 import { useGuns } from '../hooks/useGuns'
 import GUNS_LOCAL from '../data/guns'
 import GunCard from '../components/gun/GunCard'
+import { Link } from 'react-router-dom'
 
 /**
  * FavoritesPage — Displays user's shortlisted / favorited weapons.
  * Supports dual-mode (server API + localStorage fallback).
  */
-export default function FavoritesPage({ onSelectGun, onNavigateCatalog }) {
+export default function FavoritesPage() {
   const { favorites, loading: favLoading, error: favError, refetch } = useFavorites()
   const { guns: apiGuns } = useGuns({ limit: 100 })
 
@@ -105,16 +106,11 @@ export default function FavoritesPage({ onSelectGun, onNavigateCatalog }) {
             <p className="lede">
               Explore the armory catalog and click the heart icon on any piece to save it here.
             </p>
-            {onNavigateCatalog && (
-              <button
-                type="button"
-                className="btn btn--primary"
-                onClick={onNavigateCatalog}
-                style={{ marginTop: '16px' }}
-              >
+            <Link to="/catalog">
+              <button type="button" className="btn btn--primary" style={{ marginTop: '16px' }}>
                 Browse Catalog <ArrowRight size={16} />
               </button>
-            )}
+            </Link>
           </div>
         )}
 
@@ -124,7 +120,7 @@ export default function FavoritesPage({ onSelectGun, onNavigateCatalog }) {
               <GunCard
                 key={gun.id || gun.name}
                 gun={gun}
-                onSelect={onSelectGun}
+                onSelect={() => {}} // Detail view handled by clicking the card
               />
             ))}
           </ul>
